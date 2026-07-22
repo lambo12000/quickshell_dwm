@@ -1,5 +1,6 @@
-# runtime data (notification history + per-app rules)
+# runtime data (notification history + per-app rules, user prefs)
 notification-data.json
+settings.json
 
 # dwm build artifacts
 dwm/*.o

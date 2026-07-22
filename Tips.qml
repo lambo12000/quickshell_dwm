@@ -37,7 +37,7 @@ Item {
 
     Timer {
         interval: 30000
-        running: true
+        running: Settings.tipsEnabled
         repeat: true
         onTriggered: cycle.restart()
     }
@@ -67,15 +67,41 @@ Item {
         anchors.centerIn: parent
         spacing: 7
 
-        Text {
+        Item {
+            id: bulb
             anchors.verticalCenter: parent.verticalCenter
-            font.family: Theme.iconFont
-            font.pixelSize: 12
-            text: "\u{f0335}" // 󰌵 lightbulb
-            color: "#66ffffff"
+            width: 16
+            height: 18
+
+            Text {
+                anchors.centerIn: parent
+                font.family: Theme.iconFont
+                font.pixelSize: 12
+                text: "\u{f0335}" // 󰌵 lightbulb
+                color: bulbMouse.containsMouse ? Theme.fg : "#66ffffff"
+            }
+
+            // slash when tips are disabled
+            Rectangle {
+                visible: !Settings.tipsEnabled
+                anchors.centerIn: parent
+                width: 16
+                height: 1.4
+                radius: 1
+                rotation: -45
+                color: bulbMouse.containsMouse ? Theme.fg : "#99ffffff"
+            }
+
+            MouseArea {
+                id: bulbMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: Settings.setTipsEnabled(!Settings.tipsEnabled)
+            }
         }
 
         Text {
+            visible: Settings.tipsEnabled
             anchors.verticalCenter: parent.verticalCenter
             width: Math.min(implicitWidth, tips.maxWidth - 20)
             text: tips.list[tips.idx]
@@ -83,11 +109,11 @@ Item {
             font.pixelSize: 11
             font.italic: true
             elide: Text.ElideRight
-        }
-    }
 
-    MouseArea {
-        anchors.fill: parent
-        onClicked: cycle.restart() // click for the next tip
+            MouseArea {
+                anchors.fill: parent
+                onClicked: cycle.restart() // click the tip for the next one
+            }
+        }
     }
 }
