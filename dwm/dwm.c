@@ -228,6 +228,7 @@ static void updatetitle(Client *c);
 static void updatewindowtype(Client *c);
 static void updatewmhints(Client *c);
 static void view(const Arg *arg);
+static void viewocc(const Arg *arg);
 static Client *wintoclient(Window w);
 static Monitor *wintomon(Window w);
 static int xerror(Display *dpy, XErrorEvent *ee);
@@ -2142,6 +2143,34 @@ view(const Arg *arg)
 		selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
 	focus(NULL);
 	arrange(selmon);
+}
+
+/* cycle the view through tags that have a client, wrapping around;
+ * arg->i is the direction (+1 forward, -1 backward) */
+void
+viewocc(const Arg *arg)
+{
+	unsigned int occ = 0, cur, i, n;
+	int dir = arg->i < 0 ? -1 : 1;
+	Client *c;
+	Arg a;
+
+	for (c = selmon->clients; c; c = c->next)
+		occ |= c->tags & TAGMASK;
+	if (!occ)
+		return;
+	/* reference point: lowest tag in the current view */
+	for (cur = 0; cur < LENGTH(tags) - 1; cur++)
+		if (selmon->tagset[selmon->seltags] & (1 << cur))
+			break;
+	for (n = 1; n <= LENGTH(tags); n++) {
+		i = (cur + 2 * LENGTH(tags) + dir * n) % LENGTH(tags);
+		if (occ & (1 << i)) {
+			a.ui = 1 << i;
+			view(&a);
+			return;
+		}
+	}
 }
 
 Client *

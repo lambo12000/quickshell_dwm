@@ -196,17 +196,31 @@ Item {
                             readonly property bool pinned: NotificationStore.modeFor(modelData.app) === "persist"
 
                             width: groupCol.width
-                            height: entryCard.height + (stackHead ? 6 : 0)
+                            height: entryCard.height + (stackHead ? 8 : 0)
 
-                            // stacked-card edge peeking below
+                            // stacked-card edges peeking below (same look as toasts)
+                            Rectangle {
+                                visible: wrap.stackHead && groupCol.group.entries.length > 2
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                y: entryCard.height - 2
+                                width: parent.width - 44
+                                height: 8
+                                radius: 8
+                                color: "#29292d"
+                                border.color: Theme.popupBorder
+                                border.width: 1
+                            }
+
                             Rectangle {
                                 visible: wrap.stackHead
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                y: entryCard.height - 4
-                                width: parent.width - 20
-                                height: 8
-                                radius: 8
-                                color: "#14ffffff"
+                                y: entryCard.height - 6
+                                width: parent.width - 22
+                                height: 10
+                                radius: 10
+                                color: "#2e2e33"
+                                border.color: Theme.popupBorder
+                                border.width: 1
                             }
 
                             Rectangle {
@@ -214,7 +228,9 @@ Item {
                                 width: parent.width
                                 implicitHeight: entryCol.implicitHeight + 16
                                 radius: 8
-                                color: entryHover.hovered ? Theme.hover : "#1affffff"
+                                // opaque equivalents of the old translucent overlays so the
+                                // stacked edges tucked underneath don't show through
+                                color: entryHover.hovered ? "#454549" : "#39393d"
 
                                 HoverHandler {
                                     id: entryHover
