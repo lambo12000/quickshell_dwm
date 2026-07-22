@@ -174,6 +174,12 @@ Item {
                         id: entryHover
                     }
 
+                    MouseArea {
+                        anchors.fill: parent
+                        acceptedButtons: Qt.RightButton
+                        onClicked: NotificationStore.removeHistoryAt(index)
+                    }
+
                     Row {
                         anchors.left: parent.left
                         anchors.right: parent.right

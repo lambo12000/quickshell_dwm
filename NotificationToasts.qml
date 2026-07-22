@@ -112,10 +112,13 @@ PanelWindow {
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: {
-                        const acts = card.modelData.actions;
-                        if (acts && acts.length > 0)
-                            acts[0].invoke();
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    onClicked: mouse => {
+                        if (mouse.button === Qt.LeftButton) {
+                            const acts = card.modelData.actions;
+                            if (acts && acts.length > 0)
+                                acts[0].invoke();
+                        }
                         card.modelData.dismiss();
                     }
                 }
