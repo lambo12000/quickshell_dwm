@@ -57,8 +57,8 @@ Finally `startx` from a TTY.
 | `Super+Shift+J` | Move window to the other monitor (focus follows) |
 | `Super+1–9` | View tag / workspace |
 | `Super+Shift+1–9` | Send window to tag |
-| `Super+Tab` | Next occupied tag (wraps around) |
-| `Super+Shift+Tab` | Previous occupied tag (wraps around) |
+| `Super+Tab` | Previous tag |
+| `Super+Shift+Tab` | Next occupied tag (wraps around) |
 | `Super+J/K` | Cycle window focus on this monitor |
 | `Super+,` / `Super+.` | Focus other monitor |
 | `Super+T/F/M` | Tile / floating / monocle layout |
