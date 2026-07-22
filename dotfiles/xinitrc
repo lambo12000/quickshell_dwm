@@ -1,0 +1,53 @@
+# Keyboard & display setup
+xset r rate 200 35 &
+# Swap Alt <-> Super: the key next to the spacebar acts as Super/Cmd (macOS layout)
+setxkbmap -option altwin:swap_alt_win
+xrandr --output HDMI-0 --mode 1920x1080 --rate 165 --pos 0x0 \
+       --output DP-0 --mode 2560x1440 --rate 165 --pos 0x0 --right-of HDMI-0 --scale 0.75x0.75
+
+# Environment
+export XDG_CURRENT_DESKTOP=GTK
+export GTK_USE_PORTAL=1
+
+# D-Bus + systemd user session
+systemctl --user import-environment DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP
+dbus-update-activation-environment --systemd DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP
+
+# === GNOME Keyring (this fixes your login/cookie issue) ===
+eval $(gnome-keyring-daemon --start --components=pkcs11,secrets,ssh)
+export SSH_AUTH_SOCK
+export GNOME_KEYRING_CONTROL
+export GPG_AGENT_INFO   # optional, but harmless
+
+# Compositor (translucency + rounded corners for quickshell)
+picom -b
+
+# Notifications are handled by quickshell (NotificationServer); dunst retired
+
+# browser acceleration
+export LIBVA_DRIVER_NAME=nvidia
+export NVD_BACKEND=direct          # recommended for performance
+export MOZ_DISABLE_RDD_SANDBOX=1   # required for Firefox to access the driver
+export CUDA_DISABLE_PERF_BOOST=1   # optional but good on newer drivers (reduces power waste)
+# export MOZ_X11_EGL=1             # uncomment if WebRender still shows as Software later
+
+#
+copyq --start-server &
+
+# Quickshell (bar + spotlight launcher; launcher toggled by dwm via Super+Space)
+qs -p "$HOME/projects/quickshell_dwm" &
+# Bridge legacy XEmbed tray icons (e.g. Steam) to StatusNotifier if installed.
+# Must start AFTER quickshell owns org.kde.StatusNotifierWatcher, otherwise
+# snixembed spawns its own stub watcher and no tray icons ever appear.
+command -v snixembed >/dev/null && (
+    for i in $(seq 30); do
+        busctl --user status org.kde.StatusNotifierWatcher >/dev/null 2>&1 && break
+        sleep 0.5
+    done
+    snixembed --fork
+) &
+
+# Start WM 
+#exec oxwm
+exec dwm
+#exec cinnamon-session

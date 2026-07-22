@@ -1,0 +1,6 @@
+# runtime data (notification history + per-app rules)
+notification-data.json
+
+# dwm build artifacts
+dwm/*.o
+dwm/dwm
