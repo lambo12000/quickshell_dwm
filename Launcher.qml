@@ -59,8 +59,25 @@ PanelWindow {
     implicitHeight: searchBarHeight
         + (results.length > 0 ? results.length * rowHeight + 14 : 0)
 
+    // dwm's focused monitor, mapped to the matching quickshell screen.
+    // Resolved at show time so the launcher opens where the user is working.
+    function focusedScreen() {
+        const mons = DwmState.monitors;
+        for (let i = 0; i < mons.length; i++) {
+            if (!mons[i].selected)
+                continue;
+            const screens = Quickshell.screens;
+            for (let j = 0; j < screens.length; j++) {
+                if (screens[j].x === mons[i].x && screens[j].y === mons[i].y)
+                    return screens[j];
+            }
+        }
+        return Quickshell.screens[0];
+    }
+
     function setShown(shown: bool): void {
         if (shown) {
+            screen = focusedScreen();
             queryField.text = "";
             results = [];
             selectedIndex = 0;
