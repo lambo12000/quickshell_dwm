@@ -183,6 +183,7 @@ PanelWindow {
         NetworkWidget { bar: bar }
         SoundWidget { bar: bar }
         BluetoothWidget { bar: bar }
+        WallpaperWidget { bar: bar }
 
         Item { width: 4; height: 1 }
 
