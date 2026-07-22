@@ -18,6 +18,9 @@ launcher, notification system, calendar).
   history, and per-app rules — pin an app in the notification center and its
   toasts persist until dismissed; unpinned apps auto-expire. Rules and history
   live in `notification-data.json`
+- **Wallpaper picker** — a bar widget with a thumbnail grid of
+  `~/Pictures/Wallpapers`, per-monitor selection (applied via `xwallpaper`),
+  persisted in `settings.json` and re-applied on login
 - **Click-to-focus** (no focus-follows-mouse), and `Super+Shift+J` bounces the
   focused window between monitors *with focus following it*
 
@@ -110,6 +113,6 @@ focused window when hidden.
 ## Requirements
 
 Everything `install.sh` installs: `quickshell` (extra), `picom`, `snixembed`,
-`xdotool`, `dmenu`, `ghostty`, `ttf-jetbrains-mono-nerd`, `networkmanager`,
-`bluez`/`bluez-utils`, plus the X11 build deps for dwm. NetworkManager and
-bluez are required for the bar's network/bluetooth widgets.
+`xdotool`, `dmenu`, `xwallpaper`, `ghostty`, `ttf-jetbrains-mono-nerd`,
+`networkmanager`, `bluez`/`bluez-utils`, plus the X11 build deps for dwm.
+NetworkManager and bluez are required for the bar's network/bluetooth widgets.
