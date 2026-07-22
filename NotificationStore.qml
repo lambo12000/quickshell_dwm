@@ -38,11 +38,35 @@ Singleton {
         save();
     }
 
-    function removeHistoryAt(i) {
-        const h = history.slice();
-        h.splice(i, 1);
-        history = h;
+    function removeEntry(e) {
+        history = history.filter(x => x !== e);
         save();
+    }
+
+    function removeApp(app) {
+        history = history.filter(x => x.app !== app);
+        save();
+    }
+
+    // newest-first history grouped by app: [{app, entries: [...]}]
+    function groupedHistory() {
+        const out = [];
+        for (let i = 0; i < history.length; i++) {
+            const e = history[i];
+            let g = null;
+            for (let j = 0; j < out.length; j++) {
+                if (out[j].app === e.app) {
+                    g = out[j];
+                    break;
+                }
+            }
+            if (!g) {
+                g = { app: e.app, entries: [] };
+                out.push(g);
+            }
+            g.entries.push(e);
+        }
+        return out;
     }
 
     function clearHistory() {

@@ -157,135 +157,220 @@ Item {
                 anchors.bottomMargin: 10
                 clip: true
                 spacing: 6
-                model: NotificationStore.history
+                model: NotificationStore.groupedHistory()
 
-                delegate: Rectangle {
+                // apps whose stacks are expanded to individual entries
+                property var expandedApps: ({})
+
+                function isExpanded(app) {
+                    return expandedApps[app] === true;
+                }
+
+                function toggleExpanded(app) {
+                    const e = Object.assign({}, expandedApps);
+                    e[app] = !e[app];
+                    expandedApps = e;
+                }
+
+                delegate: Column {
+                    id: groupCol
+
                     required property var modelData
-                    required property int index
-
-                    readonly property bool pinned: NotificationStore.modeFor(modelData.app) === "persist"
+                    readonly property var group: modelData
+                    readonly property bool multi: group.entries.length > 1
+                    readonly property bool expanded: multi && list.isExpanded(group.app)
 
                     width: list.width
-                    implicitHeight: entryCol.implicitHeight + 16
-                    radius: 8
-                    color: entryHover.hovered ? Theme.hover : "#1affffff"
+                    spacing: 4
 
-                    HoverHandler {
-                        id: entryHover
-                    }
+                    Repeater {
+                        model: groupCol.expanded ? groupCol.group.entries : [groupCol.group.entries[0]]
 
-                    MouseArea {
-                        anchors.fill: parent
-                        acceptedButtons: Qt.RightButton
-                        onClicked: NotificationStore.removeHistoryAt(index)
-                    }
+                        delegate: Item {
+                            id: wrap
 
-                    Row {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.leftMargin: 10
-                        anchors.rightMargin: 56
-                        spacing: 10
+                            required property var modelData
+                            required property int index
+                            // collapsed stack header (multiple entries hidden behind it)
+                            readonly property bool stackHead: groupCol.multi && !groupCol.expanded
+                            readonly property bool pinned: NotificationStore.modeFor(modelData.app) === "persist"
 
-                        IconImage {
-                            anchors.verticalCenter: parent.verticalCenter
-                            implicitSize: 26
-                            visible: source != ""
-                            source: nc.resolveIcon(parent.parent.modelData)
-                        }
+                            width: groupCol.width
+                            height: entryCard.height + (stackHead ? 6 : 0)
 
-                        Column {
-                            id: entryCol
-                            width: parent.width - 36
-                            spacing: 1
+                            // stacked-card edge peeking below
+                            Rectangle {
+                                visible: wrap.stackHead
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                y: entryCard.height - 4
+                                width: parent.width - 20
+                                height: 8
+                                radius: 8
+                                color: "#14ffffff"
+                            }
 
-                            Row {
+                            Rectangle {
+                                id: entryCard
                                 width: parent.width
-                                spacing: 6
+                                implicitHeight: entryCol.implicitHeight + 16
+                                radius: 8
+                                color: entryHover.hovered ? Theme.hover : "#1affffff"
 
-                                Text {
-                                    text: modelData.app
-                                    color: Theme.fgDim
-                                    font.pixelSize: 10
+                                HoverHandler {
+                                    id: entryHover
                                 }
 
-                                Text {
-                                    text: NotificationStore.timeAgo(modelData.time)
-                                    color: Theme.fgDim
-                                    font.pixelSize: 10
+                                MouseArea {
+                                    anchors.fill: parent
+                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                    onClicked: mouse => {
+                                        if (mouse.button === Qt.RightButton) {
+                                            // right-click: remove entry (whole stack if collapsed)
+                                            if (wrap.stackHead)
+                                                NotificationStore.removeApp(groupCol.group.app);
+                                            else
+                                                NotificationStore.removeEntry(wrap.modelData);
+                                        } else if (groupCol.multi) {
+                                            list.toggleExpanded(groupCol.group.app);
+                                        }
+                                    }
+                                }
+
+                                Row {
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.leftMargin: 10
+                                    anchors.rightMargin: 56
+                                    spacing: 10
+
+                                    IconImage {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        implicitSize: 26
+                                        visible: source != ""
+                                        source: nc.resolveIcon(wrap.modelData)
+                                    }
+
+                                    Column {
+                                        id: entryCol
+                                        width: parent.width - 36
+                                        spacing: 1
+
+                                        Row {
+                                            width: parent.width
+                                            spacing: 6
+
+                                            Text {
+                                                text: wrap.modelData.app
+                                                color: Theme.fgDim
+                                                font.pixelSize: 10
+                                            }
+
+                                            Text {
+                                                text: NotificationStore.timeAgo(wrap.modelData.time)
+                                                color: Theme.fgDim
+                                                font.pixelSize: 10
+                                            }
+
+                                            // count badge on collapsed stacks
+                                            Rectangle {
+                                                visible: wrap.stackHead
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                height: 14
+                                                width: Math.max(14, stackBadge.implicitWidth + 8)
+                                                radius: 7
+                                                color: "#3dffffff"
+
+                                                Text {
+                                                    id: stackBadge
+                                                    anchors.centerIn: parent
+                                                    text: groupCol.group.entries.length
+                                                    color: Theme.fg
+                                                    font.pixelSize: 9
+                                                    font.bold: true
+                                                }
+                                            }
+                                        }
+
+                                        Text {
+                                            width: parent.width
+                                            text: wrap.modelData.summary
+                                            color: Theme.fg
+                                            font.pixelSize: 12
+                                            font.bold: true
+                                            elide: Text.ElideRight
+                                        }
+
+                                        Text {
+                                            width: parent.width
+                                            visible: text !== ""
+                                            text: wrap.modelData.body
+                                            color: Theme.fgDim
+                                            font.pixelSize: 11
+                                            maximumLineCount: 2
+                                            wrapMode: Text.Wrap
+                                            elide: Text.ElideRight
+                                        }
+                                    }
+                                }
+
+                                // pin toggle on the first row of each app group
+                                Rectangle {
+                                    visible: wrap.index === 0
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 28
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 20
+                                    height: 20
+                                    radius: 6
+                                    color: pinMouse.containsMouse ? Theme.hover : "transparent"
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        font.family: Theme.iconFont
+                                        font.pixelSize: 13
+                                        text: "\u{f0403}" // 󰐃 pin
+                                        color: wrap.pinned ? Theme.accent : Theme.fgDim
+                                    }
+
+                                    MouseArea {
+                                        id: pinMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: NotificationStore.toggleMode(wrap.modelData.app)
+                                    }
+                                }
+
+                                // remove entry (whole stack when collapsed)
+                                Rectangle {
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 6
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 20
+                                    height: 20
+                                    radius: 6
+                                    color: delMouse.containsMouse ? Theme.hover : "transparent"
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "✕"
+                                        color: Theme.fgDim
+                                        font.pixelSize: 10
+                                    }
+
+                                    MouseArea {
+                                        id: delMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: {
+                                            if (wrap.stackHead)
+                                                NotificationStore.removeApp(groupCol.group.app);
+                                            else
+                                                NotificationStore.removeEntry(wrap.modelData);
+                                        }
+                                    }
                                 }
                             }
-
-                            Text {
-                                width: parent.width
-                                text: modelData.summary
-                                color: Theme.fg
-                                font.pixelSize: 12
-                                font.bold: true
-                                elide: Text.ElideRight
-                            }
-
-                            Text {
-                                width: parent.width
-                                visible: text !== ""
-                                text: modelData.body
-                                color: Theme.fgDim
-                                font.pixelSize: 11
-                                maximumLineCount: 2
-                                wrapMode: Text.Wrap
-                                elide: Text.ElideRight
-                            }
-                        }
-                    }
-
-                    // pin toggle: classify this app persistent/timed
-                    Rectangle {
-                        anchors.right: parent.right
-                        anchors.rightMargin: 28
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 20
-                        height: 20
-                        radius: 6
-                        color: pinMouse.containsMouse ? Theme.hover : "transparent"
-
-                        Text {
-                            anchors.centerIn: parent
-                            font.family: Theme.iconFont
-                            font.pixelSize: 13
-                            text: "\u{f0403}" // 󰐃 pin
-                            color: pinned ? Theme.accent : Theme.fgDim
-                        }
-
-                        MouseArea {
-                            id: pinMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onClicked: NotificationStore.toggleMode(modelData.app)
-                        }
-                    }
-
-                    Rectangle {
-                        anchors.right: parent.right
-                        anchors.rightMargin: 6
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 20
-                        height: 20
-                        radius: 6
-                        color: delMouse.containsMouse ? Theme.hover : "transparent"
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "✕"
-                            color: Theme.fgDim
-                            font.pixelSize: 10
-                        }
-
-                        MouseArea {
-                            id: delMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onClicked: NotificationStore.removeHistoryAt(index)
                         }
                     }
                 }
