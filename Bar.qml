@@ -180,6 +180,7 @@ PanelWindow {
 
         Item { width: 4; height: 1 }
 
+        SoundWidget { bar: bar }
         NetworkWidget { bar: bar }
         BluetoothWidget { bar: bar }
 

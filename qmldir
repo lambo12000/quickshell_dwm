@@ -6,6 +6,7 @@ singleton NotificationStore 1.0 NotificationStore.qml
 Bar 1.0 Bar.qml
 Launcher 1.0 Launcher.qml
 NetworkWidget 1.0 NetworkWidget.qml
+SoundWidget 1.0 SoundWidget.qml
 BluetoothWidget 1.0 BluetoothWidget.qml
 NotificationCenter 1.0 NotificationCenter.qml
 NotificationToasts 1.0 NotificationToasts.qml
