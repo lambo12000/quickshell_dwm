@@ -63,6 +63,13 @@ static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() 
 static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", col_gray1, "-nf", col_gray3, "-sb", col_cyan, "-sf", col_gray4, NULL };
 static const char *termcmd[]  = { "ghostty", NULL };
 static const char *launchercmd[] = { "/bin/sh", "-c", "qs -p \"$HOME/projects/quickshell_dwm\" ipc call launcher toggle", NULL };
+/* drag-select screenshot: saves to ~/Pictures/Screenshots, copies to clipboard, notifies */
+static const char *screenshotcmd[] = { "/bin/sh", "-c",
+	"mkdir -p \"$HOME/Pictures/Screenshots\"; "
+	"f=\"$HOME/Pictures/Screenshots/$(date +%Y-%m-%d_%H-%M-%S).png\"; "
+	"maim -s -u \"$f\" && "
+	"xclip -selection clipboard -t image/png -i \"$f\" && "
+	"notify-send -a Screenshot 'Screenshot captured' \"$f\"", NULL };
 
 static const Key keys[] = {
 	/* modifier                     key        function        argument */
@@ -71,6 +78,7 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_Return, spawn,          {.v = termcmd } },
 	{ MODKEY,                       XK_q,      killclient,     {0} },
 	{ MODKEY,                       XK_w,      killclient,     {0} },
+	{ MODKEY,                       XK_s,      spawn,          {.v = screenshotcmd } },
 	{ MODKEY,                       XK_p,      spawn,          {.v = dmenucmd } },
 	{ MODKEY,                       XK_b,      togglebar,      {0} },
 	{ MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
