@@ -10,3 +10,4 @@ NotificationCenter 1.0 NotificationCenter.qml
 NotificationToasts 1.0 NotificationToasts.qml
 CalendarWidget 1.0 CalendarWidget.qml
 TrayMenu 1.0 TrayMenu.qml
+Tips 1.0 Tips.qml

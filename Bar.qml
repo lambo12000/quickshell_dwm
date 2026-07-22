@@ -111,12 +111,20 @@ PanelWindow {
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            width: Math.min(implicitWidth, bar.width - leftRow.x - 420)
+            // truncate before reaching the centered tip text
+            width: Math.max(0, Math.min(implicitWidth, tipsWidget.x - (leftRow.x + x) - 16))
             text: bar.mon ? bar.mon.title : ""
             color: bar.mon && bar.mon.selected ? Theme.fg : Theme.fgDim
             font.pixelSize: Theme.fontSize
             elide: Text.ElideRight
         }
+    }
+
+    Tips {
+        id: tipsWidget
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        maxWidth: bar.width * 0.30
     }
 
     // ---- right: tray, network, bluetooth, clock ----
