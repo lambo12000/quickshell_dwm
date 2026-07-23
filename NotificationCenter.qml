@@ -71,7 +71,9 @@ Item {
 
         anchor.window: nc.bar
         implicitWidth: 380
-        implicitHeight: Math.min(560, headerRow.height + list.contentHeight + 42)
+        implicitHeight: NotificationStore.history.length === 0
+            ? headerRow.height + emptyLabel.implicitHeight + 48
+            : Math.min(560, headerRow.height + list.contentHeight + 42)
         visible: false
         color: "transparent"
 
@@ -136,6 +138,7 @@ Item {
             }
 
             Text {
+                id: emptyLabel
                 visible: NotificationStore.history.length === 0
                 anchors.top: headerRow.bottom
                 anchors.topMargin: 20
