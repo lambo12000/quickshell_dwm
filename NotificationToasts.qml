@@ -54,6 +54,21 @@ PanelWindow {
             items[i].dismiss();
     }
 
+    // Raise the sender's window when the notification has no action to
+    // invoke: match WM_CLASS against the desktop entry's last segment
+    // ("org.signal.Signal" -> "Signal") or the app name, then activate.
+    // dwm switches to the window's tag on _NET_ACTIVE_WINDOW.
+    function activateApp(n) {
+        const de = (n.desktopEntry || "").split(".").pop();
+        const script =
+            'for pat in "$1" "$2"; do ' +
+            '[ -n "$pat" ] || continue; ' +
+            'id=$(xdotool search --class -- "$pat" | head -n1); ' +
+            '[ -n "$id" ] && { xdotool windowactivate "$id"; exit 0; }; ' +
+            'done';
+        Quickshell.execDetached(["sh", "-c", script, "sh", de, n.appName || ""]);
+    }
+
     Column {
         id: col
         anchors.top: parent.top
@@ -186,6 +201,8 @@ PanelWindow {
                             const acts = stack.head.actions;
                             if (acts && acts.length > 0)
                                 acts[0].invoke();
+                            else
+                                win.activateApp(stack.head);
                             stack.head.dismiss();
                         }
                     }
