@@ -528,8 +528,20 @@ clientmessage(XEvent *e)
 			setfullscreen(c, (cme->data.l[0] == 1 /* _NET_WM_STATE_ADD    */
 				|| (cme->data.l[0] == 2 /* _NET_WM_STATE_TOGGLE */ && !c->isfullscreen)));
 	} else if (cme->message_type == netatom[NetActiveWindow]) {
-		if (c != selmon->sel && !c->isurgent)
-			seturgent(c, 1);
+		/* jump to the window instead of just flagging it urgent:
+		 * switch to its monitor and tag if needed, then focus it */
+		if (c == selmon->sel)
+			return;
+		if (c->mon != selmon) {
+			unfocus(selmon->sel, 0);
+			selmon = c->mon;
+		}
+		if (!ISVISIBLE(c)) {
+			const Arg a = {.ui = c->tags & TAGMASK};
+			view(&a);
+		}
+		focus(c);
+		restack(selmon);
 	}
 }
 
