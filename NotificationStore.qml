@@ -26,13 +26,15 @@ Singleton {
         precision: SystemClock.Minutes
     }
 
+    // Empty app names (e.g. Signal) fall back to "Unknown" everywhere else,
+    // so rule lookups must resolve the same key.
     function modeFor(appName) {
-        return rules[(appName || "").toLowerCase()] || "timed";
+        return rules[(appName || "Unknown").toLowerCase()] || "timed";
     }
 
     function toggleMode(appName) {
         const r = JSON.parse(JSON.stringify(rules));
-        const k = (appName || "").toLowerCase();
+        const k = (appName || "Unknown").toLowerCase();
         r[k] = (r[k] === "persist") ? "timed" : "persist";
         rules = r;
         save();
