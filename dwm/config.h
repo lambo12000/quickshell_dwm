@@ -61,7 +61,7 @@ static const Layout layouts[] = {
 /* commands */
 static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
 static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", col_gray1, "-nf", col_gray3, "-sb", col_cyan, "-sf", col_gray4, NULL };
-static const char *termcmd[]  = { "ghostty", NULL };
+static const char *termcmd[]  = { "alacritty", NULL };
 static const char *launchercmd[] = { "/bin/sh", "-c", "qs -p \"$HOME/projects/quickshell_dwm\" ipc call launcher toggle", NULL };
 /* drag-select screenshot: saves to ~/Pictures/Screenshots, copies to clipboard, notifies */
 static const char *screenshotcmd[] = { "/bin/sh", "-c",

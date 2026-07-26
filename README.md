@@ -55,7 +55,7 @@ Finally `startx` from a TTY.
 | Key | Action |
 |---|---|
 | `Super+Space` | Spotlight launcher |
-| `Super+Enter` | Terminal (ghostty) |
+| `Super+Enter` | Terminal (alacritty) |
 | `Super+Q` / `Super+W` | Close window |
 | `Super+Shift+J` | Move window to the other monitor (focus follows) |
 | `Super+1–9` | View tag / workspace |
@@ -113,6 +113,6 @@ focused window when hidden.
 ## Requirements
 
 Everything `install.sh` installs: `quickshell` (extra), `picom`, `snixembed`,
-`xdotool`, `dmenu`, `xwallpaper`, `ghostty`, `ttf-jetbrains-mono-nerd`,
+`xdotool`, `dmenu`, `xwallpaper`, `alacritty`, `ttf-jetbrains-mono-nerd`,
 `networkmanager`, `bluez`/`bluez-utils`, plus the X11 build deps for dwm.
 NetworkManager and bluez are required for the bar's network/bluetooth widgets.

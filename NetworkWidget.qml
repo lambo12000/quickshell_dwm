@@ -284,7 +284,7 @@ Item {
                                     modelData.connect();
                                 } else {
                                     // needs a passphrase; hand off to nmtui
-                                    Quickshell.execDetached(["ghostty", "-e", "nmtui"]);
+                                    Quickshell.execDetached(["alacritty", "-e", "nmtui"]);
                                     popup.visible = false;
                                 }
                             }
@@ -310,7 +310,7 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         onClicked: {
-                            Quickshell.execDetached(["ghostty", "-e", "nmtui"]);
+                            Quickshell.execDetached(["alacritty", "-e", "nmtui"]);
                             popup.visible = false;
                         }
                     }

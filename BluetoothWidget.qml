@@ -214,7 +214,7 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         onClicked: {
-                            Quickshell.execDetached(["ghostty", "-e", "bluetoothctl"]);
+                            Quickshell.execDetached(["alacritty", "-e", "bluetoothctl"]);
                             popup.visible = false;
                         }
                     }

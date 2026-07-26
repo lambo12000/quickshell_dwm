@@ -18,7 +18,7 @@ sudo pacman -S --needed \
     base-devel libx11 libxft libxinerama xorg-server xorg-xinit xorg-xprop \
     quickshell picom snixembed \
     xdotool dmenu xwallpaper \
-    ghostty \
+    alacritty \
     ttf-jetbrains-mono-nerd \
     networkmanager bluez bluez-utils
 
