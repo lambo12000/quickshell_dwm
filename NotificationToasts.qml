@@ -59,7 +59,8 @@ PanelWindow {
     // ("org.signal.Signal" -> "Signal") or the app name, then activate.
     // dwm switches to the window's tag on _NET_ACTIVE_WINDOW.
     function activateApp(n) {
-        const de = (n.desktopEntry || "").split(".").pop();
+        // some apps send the hint with a ".desktop" suffix despite the spec
+        const de = (n.desktopEntry || "").replace(/\.desktop$/, "").split(".").pop();
         const script =
             'for pat in "$1" "$2"; do ' +
             '[ -n "$pat" ] || continue; ' +
