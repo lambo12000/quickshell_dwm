@@ -10,7 +10,10 @@ launcher, notification system, calendar).
   level so the key next to the spacebar acts as Cmd
 - **Spotlight launcher** — `Super+Space`, fuzzy app search, arrow keys + Enter,
   Escape to dismiss
-- **quickshell bar** replacing the dwm bar: workspaces (tags), layout symbol,
+- **quickshell bar** replacing the dwm bar: workspaces (tags) that show the
+  **app icons** living on them — the tag's master app at full size, up to three
+  smaller icons for the rest, then a `+N`; click any icon to jump straight to
+  that window — plus layout symbol,
   focused window title, **system tray** (SNI + XEmbed via snixembed) with
   working right-click menus, **network** and **bluetooth** popups, a
   **notification center**, and a clock with a **calendar popup**
@@ -84,12 +87,17 @@ they meet in three narrow places:
    stays enabled at a fixed `barheight = 30` purely to reserve the strip the
    quickshell bar draws over.
 2. **State flows out through a file.** On every internal redraw dwm writes
-   per-monitor state (selected/occupied/urgent tags, layout, focused title) as
-   JSON to `$XDG_RUNTIME_DIR/dwm-state.json`; the bar watches it with a
-   `FileView`.
+   per-monitor state (selected/occupied/urgent tags, layout, focused title) plus
+   the monitor's client list (`win`, `tags`, `class`, `floating`) as JSON to
+   `$XDG_RUNTIME_DIR/dwm-state.json`; the bar watches it with a `FileView`.
+   Clients are emitted in `m->clients` order, so the first non-floating entry
+   matching a tag is that tag's master — which is how the bar knows which app to
+   show large.
 3. **Commands flow back through synthetic keys.** Clicking a tag in the bar
    runs `xdotool key super+N` — the bar reuses dwm's own bindings instead of
-   needing an IPC patch.
+   needing an IPC patch. Clicking an app icon instead runs `xdotool
+   windowactivate`, and the patch's `_NET_ACTIVE_WINDOW` handler switches
+   monitor and tag before focusing.
 
 The launcher is toggled over quickshell's IPC
 (`qs -p <dir> ipc call launcher toggle`). Because dwm ignores dock windows,

@@ -85,6 +85,7 @@ typedef struct Monitor Monitor;
 typedef struct Client Client;
 struct Client {
 	char name[256];
+	char class[64];
 	float mina, maxa;
 	int x, y, w, h;
 	int oldx, oldy, oldw, oldh;
@@ -164,6 +165,8 @@ static void drawbar(Monitor *m);
 static void drawbars(void);
 static void exportstate(void);
 static void jsonescape(const char *s, char *d, size_t n);
+static int jsonappend(char *buf, size_t cap, int *len, const char *fmt, ...);
+static void updateclass(Client *c);
 static void enternotify(XEvent *e);
 static void expose(XEvent *e);
 static void focus(Client *c);
@@ -793,24 +796,49 @@ jsonescape(const char *s, char *d, size_t n)
 	d[i] = '\0';
 }
 
-/* write per-monitor state (tags, layout, title) as JSON for external bars */
+/* append a formatted chunk to buf, advancing *len only if the whole chunk fit.
+ * A partial write is never committed, so buf is always a valid prefix. */
+int
+jsonappend(char *buf, size_t cap, int *len, const char *fmt, ...)
+{
+	va_list ap;
+	int n;
+
+	if (*len < 0 || (size_t)*len >= cap)
+		return 0;
+	va_start(ap, fmt);
+	n = vsnprintf(buf + *len, cap - *len, fmt, ap);
+	va_end(ap);
+	if (n < 0 || (size_t)(*len + n) >= cap)
+		return 0;
+	*len += n;
+	return 1;
+}
+
+/* write per-monitor state (tags, layout, title) plus the per-monitor client list
+ * as JSON for external bars. Clients come out in m->clients order, so the first
+ * non-floating entry matching a tag is that tag's master -- what tile() would
+ * put in the big pane. STATETAIL keeps room for the closing "]}]" so a truncated
+ * client list still yields parseable JSON. */
+#define STATETAIL 8
 void
 exportstate(void)
 {
 	static char path[512];
-	char buf[8192], tbuf[1024], lbuf[64];
+	char buf[32768], tbuf[1024], lbuf[64], cbuf[256];
+	const size_t body = sizeof(buf) - STATETAIL;
 	FILE *f;
 	Monitor *m;
 	Client *c;
 	unsigned int occ, urg;
-	int len = 0, first = 1;
+	int len = 0, first = 1, cfirst;
 
 	if (!path[0]) {
 		const char *rt = getenv("XDG_RUNTIME_DIR");
 		snprintf(path, sizeof(path), "%s/dwm-state.json", rt ? rt : "/tmp");
 	}
-	len += snprintf(buf + len, sizeof(buf) - len, "[");
-	for (m = mons; m && len < (int)sizeof(buf) - 256; m = m->next) {
+	jsonappend(buf, body, &len, "[");
+	for (m = mons; m; m = m->next) {
 		occ = urg = 0;
 		for (c = m->clients; c; c = c->next) {
 			occ |= c->tags;
@@ -819,14 +847,29 @@ exportstate(void)
 		}
 		jsonescape(m->sel ? m->sel->name : "", tbuf, sizeof(tbuf));
 		jsonescape(m->ltsymbol, lbuf, sizeof(lbuf));
-		len += snprintf(buf + len, sizeof(buf) - len,
+		if (!jsonappend(buf, body, &len,
 			"%s{\"num\":%d,\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d,\"selected\":%d,"
-			"\"tags\":%u,\"occ\":%u,\"urg\":%u,\"layout\":\"%s\",\"title\":\"%s\"}",
+			"\"tags\":%u,\"occ\":%u,\"urg\":%u,\"layout\":\"%s\",\"title\":\"%s\","
+			"\"clients\":[",
 			first ? "" : ",", m->num, m->mx, m->my, m->mw, m->mh,
-			m == selmon, m->tagset[m->seltags], occ, urg, lbuf, tbuf);
+			m == selmon, m->tagset[m->seltags], occ, urg, lbuf, tbuf))
+			break;
 		first = 0;
+		cfirst = 1;
+		for (c = m->clients; c; c = c->next) {
+			jsonescape(c->class, cbuf, sizeof(cbuf));
+			if (!jsonappend(buf, body, &len,
+				"%s{\"win\":%lu,\"tags\":%u,\"class\":\"%s\",\"floating\":%d}",
+				cfirst ? "" : ",", (unsigned long)c->win, c->tags,
+				cbuf, c->isfloating ? 1 : 0))
+				break;
+			cfirst = 0;
+		}
+		/* the reserved tail guarantees these closers always fit */
+		if (!jsonappend(buf, sizeof(buf), &len, "]}"))
+			break;
 	}
-	snprintf(buf + len, sizeof(buf) - len, "]");
+	jsonappend(buf, sizeof(buf), &len, "]");
 	if ((f = fopen(path, "w"))) {
 		fputs(buf, f);
 		fclose(f);
@@ -1132,6 +1175,7 @@ manage(Window w, XWindowAttributes *wa)
 	c->oldbw = wa->border_width;
 
 	updatetitle(c);
+	updateclass(c);
 	if (XGetTransientForHint(dpy, w, &trans) && (t = wintoclient(trans))) {
 		c->mon = t->mon;
 		c->tags = t->tags;
@@ -1328,6 +1372,12 @@ propertynotify(XEvent *e)
 			break;
 		case XA_WM_NORMAL_HINTS:
 			c->hintsvalid = 0;
+			break;
+		case XA_WM_CLASS:
+			/* some toolkits set WM_CLASS after mapping, so the value
+			 * cached in manage() can be stale or empty */
+			updateclass(c);
+			drawbars();
 			break;
 		case XA_WM_HINTS:
 			updatewmhints(c);
@@ -2112,6 +2162,24 @@ updatetitle(Client *c)
 		gettextprop(c->win, XA_WM_NAME, c->name, sizeof c->name);
 	if (c->name[0] == '\0') /* hack to mark broken clients */
 		strcpy(c->name, broken);
+}
+
+/* cache WM_CLASS (res_class) so exportstate() can hand it to the bar; applyrules()
+ * reads and frees the hint, and transients skip applyrules() entirely */
+void
+updateclass(Client *c)
+{
+	XClassHint ch = { NULL, NULL };
+
+	c->class[0] = '\0';
+	if (!XGetClassHint(dpy, c->win, &ch))
+		return;
+	if (ch.res_class)
+		strncpy(c->class, ch.res_class, sizeof(c->class) - 1);
+	if (ch.res_class)
+		XFree(ch.res_class);
+	if (ch.res_name)
+		XFree(ch.res_name);
 }
 
 void

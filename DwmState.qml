@@ -25,6 +25,12 @@ Singleton {
         Quickshell.execDetached(["xdotool", "key", "--clearmodifiers", combo]);
     }
 
+    // xdotool sends _NET_ACTIVE_WINDOW, which the local dwm patch handles by
+    // switching to the window's monitor and tag before focusing it
+    function activate(win) {
+        Quickshell.execDetached(["xdotool", "windowactivate", String(win)]);
+    }
+
     FileView {
         path: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/dwm-state.json"
         watchChanges: true
