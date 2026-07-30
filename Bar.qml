@@ -13,6 +13,53 @@ PanelWindow {
     aboveWindows: true
     color: Theme.barBg
 
+    readonly property int maxSubIcons: 3
+
+    // One app icon: the real icon when the WM_CLASS resolves, otherwise a
+    // monogram chip so two unresolved apps stay distinguishable. Left-click
+    // jumps to that window; other buttons fall through to the tag pill below.
+    component AppIcon: Item {
+        id: appIcon
+
+        required property var client
+        required property int size
+
+        readonly property string wmClass: client ? client.class : ""
+        readonly property string iconPath: AppIcons.iconFor(appIcon.wmClass)
+
+        implicitWidth: size
+        implicitHeight: size
+
+        IconImage {
+            anchors.fill: parent
+            visible: appIcon.iconPath !== ""
+            source: appIcon.iconPath
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            visible: appIcon.iconPath === ""
+            radius: Math.max(2, Math.round(appIcon.size / 6))
+            color: Theme.hover
+            border.width: 1
+            border.color: Theme.fgDim
+
+            Text {
+                anchors.centerIn: parent
+                text: AppIcons.monogramFor(appIcon.wmClass)
+                color: Theme.fg
+                font.pixelSize: Math.round(appIcon.size * 0.62)
+                font.bold: true
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.LeftButton
+            onClicked: DwmState.activate(appIcon.client.win)
+        }
+    }
+
     anchors {
         top: true
         left: true
@@ -37,48 +84,128 @@ PanelWindow {
         anchors.verticalCenter: parent.verticalCenter
         spacing: 2
 
+        // A tag pill shows the apps living on that tag: dwm's master at full
+        // size, then smaller icons for the rest, capped with a "+N". Empty tags
+        // keep their number, so all nine positions stay countable.
         Repeater {
             model: 9
 
-            delegate: Rectangle {
+            delegate: Item {
+                id: tagPill
                 required property int index
-                readonly property bool tagSelected: bar.mon ? (bar.mon.tags & (1 << index)) !== 0 : index === 0
-                readonly property bool occupied: bar.mon ? (bar.mon.occ & (1 << index)) !== 0 : false
-                readonly property bool tagUrgent: bar.mon ? (bar.mon.urg & (1 << index)) !== 0 : false
 
-                width: 24
+                readonly property var tagClients: {
+                    const all = bar.mon && bar.mon.clients ? bar.mon.clients : [];
+                    const mask = 1 << tagPill.index;
+                    const out = [];
+                    for (let i = 0; i < all.length; i++)
+                        if ((all[i].tags & mask) !== 0)
+                            out.push(all[i]);
+                    return out;
+                }
+
+                // dwm's master is the first non-floating client in m->clients
+                // order — what tile() would put in the big pane. A tag holding
+                // only floating windows falls back to its first client, so the
+                // pill never regresses to a bare digit while windows are open.
+                readonly property var ordered: {
+                    const cs = tagPill.tagClients;
+                    if (cs.length === 0)
+                        return [];
+                    let master = 0;
+                    for (let i = 0; i < cs.length; i++) {
+                        if (!cs[i].floating) {
+                            master = i;
+                            break;
+                        }
+                    }
+                    const out = [cs[master]];
+                    for (let i = 0; i < cs.length; i++)
+                        if (i !== master)
+                            out.push(cs[i]);
+                    return out;
+                }
+
+                readonly property var shownIcons: tagPill.ordered.slice(0, bar.maxSubIcons + 1)
+                readonly property int overflow: tagPill.ordered.length - tagPill.shownIcons.length
+                readonly property bool occupied: tagPill.ordered.length > 0
+                readonly property bool tagSelected: bar.mon ? (bar.mon.tags & (1 << tagPill.index)) !== 0 : tagPill.index === 0
+                readonly property bool tagUrgent: bar.mon ? (bar.mon.urg & (1 << tagPill.index)) !== 0 : false
+
+                width: Math.max(24, pillRow.implicitWidth + 12)
                 height: 22
-                radius: 6
-                color: tagSelected ? Theme.accent
-                     : tagUrgent ? Theme.urgent
-                     : tagMouse.containsMouse ? Theme.hover : "transparent"
 
-                Text {
-                    anchors.centerIn: parent
-                    text: index + 1
-                    color: parent.tagSelected || parent.tagUrgent ? "#ffffff"
-                         : parent.occupied ? Theme.fg : Theme.fgDim
-                    font.pixelSize: Theme.fontSize
+                Behavior on width {
+                    NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
                 }
 
                 Rectangle {
-                    visible: parent.occupied && !parent.tagSelected
-                    width: 4
-                    height: 4
-                    radius: 2
-                    color: Theme.fg
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 1
+                    anchors.fill: parent
+                    radius: 6
+                    color: tagPill.tagUrgent
+                             ? Qt.rgba(Theme.urgent.r, Theme.urgent.g, Theme.urgent.b, 0.22)
+                         : tagMouse.containsMouse ? Theme.hover
+                         : "transparent"
                 }
 
+                // selected/urgent marker, in the gap between pill and bar edge
+                Rectangle {
+                    visible: tagPill.tagSelected || tagPill.tagUrgent
+                    width: Math.max(12, parent.width - 8)
+                    height: 2
+                    radius: 1
+                    color: tagPill.tagUrgent ? Theme.urgent : Theme.accent
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: -3
+                }
+
+                Text {
+                    visible: !tagPill.occupied
+                    anchors.centerIn: parent
+                    text: tagPill.index + 1
+                    color: tagPill.tagSelected ? Theme.fg : Theme.fgDim
+                    font.pixelSize: Theme.fontSize
+                }
+
+                Row {
+                    id: pillRow
+                    visible: tagPill.occupied
+                    anchors.centerIn: parent
+                    spacing: 3
+
+                    Repeater {
+                        model: tagPill.shownIcons
+
+                        delegate: AppIcon {
+                            required property int index
+                            required property var modelData
+
+                            anchors.verticalCenter: parent.verticalCenter
+                            client: modelData
+                            size: index === 0 ? 18 : 11
+                        }
+                    }
+
+                    Text {
+                        visible: tagPill.overflow > 0
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "+" + tagPill.overflow
+                        color: Theme.fgDim
+                        font.pixelSize: 9
+                    }
+                }
+
+                // below the icons in stacking order, so an icon's own click wins
+                // and only its unhandled buttons reach the pill
                 MouseArea {
                     id: tagMouse
+                    z: -1
                     anchors.fill: parent
                     hoverEnabled: true
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     onClicked: mouse => DwmState.key(
-                        (mouse.button === Qt.RightButton ? "super+ctrl+" : "super+") + (parent.index + 1))
+                        (mouse.button === Qt.RightButton ? "super+ctrl+" : "super+") + (tagPill.index + 1))
                 }
             }
         }

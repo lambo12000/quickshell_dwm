@@ -2,6 +2,7 @@ singleton Theme 1.0 Theme.qml
 singleton PopupGuard 1.0 PopupGuard.qml
 singleton Settings 1.0 Settings.qml
 singleton DwmState 1.0 DwmState.qml
+singleton AppIcons 1.0 AppIcons.qml
 singleton NotificationStore 1.0 NotificationStore.qml
 singleton WallpaperStore 1.0 WallpaperStore.qml
 Bar 1.0 Bar.qml
