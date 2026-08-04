@@ -43,6 +43,23 @@ Singleton {
         Quickshell.execDetached(["xdotool", "windowactivate", String(win)]);
     }
 
+    // dwm reads _NET_WM_DESKTOP as "put this window on exactly this tag" (any
+    // extra tag bits collapse), which is how the bar's drag-and-drop retags
+    // windows. A whole-stack drop chains every window into one xdotool process;
+    // no set_desktop prefix here -- the window id already picks the monitor.
+    // Deployment: requires a dwm advertising _NET_WM_DESKTOP. Against an older
+    // binary xdotool's support check aborts the chain, so a drop is a silent
+    // no-op. A window id that has since closed aborts the chain the same way,
+    // leaving the rest of a stack behind -- the bar shows the truth either way.
+    function moveToTag(wins, tagIndex) {
+        if (wins.length === 0)
+            return;
+        const argv = ["xdotool"];
+        for (let i = 0; i < wins.length; i++)
+            argv.push("set_desktop_for_window", String(wins[i]), String(tagIndex));
+        Quickshell.execDetached(argv);
+    }
+
     FileView {
         path: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/dwm-state.json"
         watchChanges: true

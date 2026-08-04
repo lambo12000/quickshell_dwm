@@ -14,10 +14,91 @@ PanelWindow {
     color: Theme.barBg
 
     readonly property int maxSubIcons: 3
+    readonly property int dragThreshold: 4
+
+    // Drag state lives on the bar: the ghost paints above every pill and the
+    // drop target is a sibling of the pill the gesture started on.
+    // The payload is a snapshot, not a reference into DwmState.monitors --
+    // dwm rewrites its state file on every redraw and hands out a brand-new
+    // clients array each time.
+    property bool dragActive: false
+    property int dragSourceIndex: -1
+    property int dragTargetIndex: -1
+    property var dragWins: []          // window ids to retag
+    property var dragClient: null      // { win: 0, "class": ... } for the ghost
+    property int dragCount: 0
+    property real dragSceneX: 0
+
+    readonly property bool dragDroppable: bar.dragTargetIndex >= 0
+                                       && bar.dragTargetIndex !== bar.dragSourceIndex
+
+    // dwm rewrites its state file on every bar redraw; latching the clients
+    // array instead of binding to it holds the pills still for the length of
+    // a drag, so the drop target cannot shift under a stationary cursor.
+    property var monClients: []
+
+    onMonChanged: bar.syncClients()
+    Component.onCompleted: bar.syncClients()
+
+    function syncClients() {
+        if (!bar.dragActive)
+            bar.monClients = bar.mon && bar.mon.clients ? bar.mon.clients : [];
+    }
+
+    function beginDrag(sourceIndex, clients, ghostClient) {
+        const wins = [];
+        for (let i = 0; i < clients.length; i++)
+            wins.push(clients[i].win);
+        bar.dragWins = wins;
+        bar.dragCount = wins.length;
+        bar.dragClient = { win: 0, "class": ghostClient ? ghostClient["class"] : "" };
+        bar.dragSourceIndex = sourceIndex;
+        bar.dragTargetIndex = sourceIndex;
+        bar.dragActive = true;
+    }
+
+    function updateDrag(sceneX, sceneY) {
+        bar.dragSceneX = sceneX;
+        bar.dragTargetIndex = bar.tagIndexAt(sceneX, sceneY);
+    }
+
+    function endDrag() {
+        if (bar.dragDroppable)
+            DwmState.moveToTag(bar.dragWins, bar.dragTargetIndex);
+        bar.cancelDrag();
+    }
+
+    function cancelDrag() {
+        bar.dragActive = false;
+        bar.dragSourceIndex = -1;
+        bar.dragTargetIndex = -1;
+        bar.dragWins = [];
+        bar.dragClient = null;
+        bar.dragCount = 0;
+        bar.syncClients();
+    }
+
+    // The pill under a scene point, or -1. Pills sit 2px apart; each claims
+    // half the gap, so a drop between two pills is not a cancel.
+    function tagIndexAt(sceneX, sceneY) {
+        if (sceneY < 0 || sceneY > bar.height)
+            return -1;
+        const p = leftRow.mapFromItem(null, sceneX, sceneY);
+        const pad = leftRow.spacing / 2;
+        for (let i = 0; i < leftRow.children.length; i++) {
+            const c = leftRow.children[i];
+            if (c.objectName !== "tagPill")
+                continue;
+            if (p.x >= c.x - pad && p.x <= c.x + c.width + pad)
+                return c.tagIndex;
+        }
+        return -1;
+    }
 
     // One app icon: the real icon when the WM_CLASS resolves, otherwise a
-    // monogram chip so two unresolved apps stay distinguishable. Left-click
-    // jumps to that window; other buttons fall through to the tag pill below.
+    // monogram chip so two unresolved apps stay distinguishable. Pure visual:
+    // the pill's single MouseArea owns all input, so a dwm state rewrite that
+    // rebuilds these delegates can never kill an in-flight mouse grab.
     component AppIcon: Item {
         id: appIcon
 
@@ -51,12 +132,6 @@ PanelWindow {
                 font.pixelSize: Math.round(appIcon.size * 0.62)
                 font.bold: true
             }
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            acceptedButtons: Qt.LeftButton
-            onClicked: DwmState.activate(appIcon.client.win)
         }
     }
 
@@ -94,8 +169,11 @@ PanelWindow {
                 id: tagPill
                 required property int index
 
+                objectName: "tagPill"
+                readonly property int tagIndex: tagPill.index
+
                 readonly property var tagClients: {
-                    const all = bar.mon && bar.mon.clients ? bar.mon.clients : [];
+                    const all = bar.monClients;
                     const mask = 1 << tagPill.index;
                     const out = [];
                     for (let i = 0; i < all.length; i++)
@@ -142,10 +220,15 @@ PanelWindow {
                 Rectangle {
                     anchors.fill: parent
                     radius: 6
-                    color: tagPill.tagUrgent
+                    color: bar.dragActive && bar.dragTargetIndex === tagPill.index && bar.dragDroppable
+                             ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.28)
+                         : tagPill.tagUrgent
                              ? Qt.rgba(Theme.urgent.r, Theme.urgent.g, Theme.urgent.b, 0.22)
-                         : tagMouse.containsMouse ? Theme.hover
+                         : (bar.dragActive ? bar.dragSourceIndex === tagPill.index : tagMouse.containsMouse)
+                             ? Theme.hover
                          : "transparent"
+                    border.width: bar.dragActive && bar.dragTargetIndex === tagPill.index && bar.dragDroppable ? 1 : 0
+                    border.color: Theme.accent
                 }
 
                 // selected/urgent marker, in the gap between pill and bar edge
@@ -184,6 +267,7 @@ PanelWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             client: modelData
                             size: index === 0 ? 18 : 11
+                            opacity: bar.dragActive && bar.dragWins.indexOf(modelData.win) >= 0 ? 0.35 : 1
                         }
                     }
 
@@ -196,15 +280,78 @@ PanelWindow {
                     }
                 }
 
-                // below the icons in stacking order, so an icon's own click wins
-                // and only its unhandled buttons reach the pill
+                // The pill's only input surface: the icons are pure visuals, so
+                // one grab covers a click on an icon, a click on the pill, and
+                // either drag. Because it belongs to the fixed nine-pill model,
+                // a dwm state rewrite can never destroy it mid-gesture.
                 MouseArea {
                     id: tagMouse
-                    z: -1
                     anchors.fill: parent
                     hoverEnabled: true
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    cursorShape: tagMouse.dragging ? Qt.ClosedHandCursor : Qt.ArrowCursor
+
+                    // the client under the press, null when the press landed on
+                    // the pill itself (background, tag number or the "+N")
+                    property var pressedClient: null
+                    property real pressSceneX: 0
+                    property bool dragging: false
+
+                    function clientAt(x, y) {
+                        if (!tagPill.occupied)
+                            return null;
+                        const p = pillRow.mapFromItem(tagMouse, x, y);
+                        const item = pillRow.childAt(p.x, p.y);
+                        return item && item.client ? item.client : null;
+                    }
+
+                    onPressed: mouse => {
+                        tagMouse.dragging = false;
+                        tagMouse.pressedClient = mouse.button === Qt.LeftButton
+                            ? tagMouse.clientAt(mouse.x, mouse.y) : null;
+                        tagMouse.pressSceneX = tagMouse.mapToItem(null, mouse.x, mouse.y).x;
+                    }
+
+                    onPositionChanged: mouse => {
+                        if (!(mouse.buttons & Qt.LeftButton))
+                            return;
+                        const p = tagMouse.mapToItem(null, mouse.x, mouse.y);
+                        if (!tagMouse.dragging) {
+                            if (Math.abs(p.x - tagMouse.pressSceneX) < bar.dragThreshold)
+                                return;
+                            if (!tagMouse.pressedClient && !tagPill.occupied)
+                                return;
+                            tagMouse.dragging = true;
+                            if (tagMouse.pressedClient)
+                                bar.beginDrag(tagPill.tagIndex, [tagMouse.pressedClient], tagMouse.pressedClient);
+                            else
+                                bar.beginDrag(tagPill.tagIndex, tagPill.ordered, tagPill.ordered[0]);
+                        }
+                        bar.updateDrag(p.x, p.y);
+                    }
+
+                    onReleased: mouse => {
+                        if (tagMouse.dragging && mouse.button === Qt.LeftButton)
+                            bar.endDrag();
+                    }
+
+                    // the grab can be taken away (window deactivation); the
+                    // ghost must not outlive it
+                    onCanceled: {
+                        if (tagMouse.dragging)
+                            bar.cancelDrag();
+                        tagMouse.dragging = false;
+                    }
+
+                    // released is emitted before clicked, so `dragging` is
+                    // cleared on the next press, never here
                     onClicked: mouse => {
+                        if (tagMouse.dragging)
+                            return;
+                        if (tagMouse.pressedClient) {
+                            DwmState.activate(tagMouse.pressedClient.win);
+                            return;
+                        }
                         const combo = (mouse.button === Qt.RightButton ? "super+ctrl+" : "super+") + (tagPill.index + 1);
                         if (bar.mon)
                             DwmState.keyOnMonitor(bar.mon.num, combo);
@@ -339,5 +486,56 @@ PanelWindow {
     TrayMenu {
         id: trayMenu
         bar: bar
+    }
+
+    // Drag ghost. The bar is 30px tall and every drop target sits in one
+    // horizontal row, so the ghost tracks the cursor on x only and stays
+    // vertically centred -- following y would only clip it against the panel.
+    Item {
+        id: dragGhost
+
+        visible: bar.dragActive
+        z: 10
+        width: 22
+        height: 22
+        x: bar.dragSceneX - width / 2
+        y: (bar.height - height) / 2
+        opacity: bar.dragDroppable ? 0.95 : 0.4
+
+        // a stack drag rides on a card so it reads as more than one window
+        Rectangle {
+            visible: bar.dragCount > 1
+            anchors.fill: parent
+            radius: 5
+            color: Theme.barBg
+            border.width: 1
+            border.color: Theme.popupBorder
+        }
+
+        AppIcon {
+            anchors.centerIn: parent
+            client: bar.dragClient
+            size: 18
+        }
+
+        Rectangle {
+            visible: bar.dragCount > 1
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.margins: -2
+            width: ghostCount.implicitWidth + 6
+            height: 12
+            radius: 6
+            color: Theme.accent
+
+            Text {
+                id: ghostCount
+                anchors.centerIn: parent
+                text: bar.dragCount
+                color: Theme.fg
+                font.pixelSize: 9
+                font.bold: true
+            }
+        }
     }
 }
