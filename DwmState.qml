@@ -25,6 +25,18 @@ Singleton {
         Quickshell.execDetached(["xdotool", "key", "--clearmodifiers", combo]);
     }
 
+    // set_desktop maps to a monitor in the patched dwm; chaining both commands
+    // in one xdotool process guarantees the monitor switch reaches the X server
+    // before the synthetic key events.
+    // Deployment: requires a dwm that advertises _NET_CURRENT_DESKTOP. Install
+    // the rebuilt binary (make install, i.e. /usr/local/bin/dwm) and restart
+    // dwm before or together with reloading quickshell — against an older dwm,
+    // xdotool's support check aborts the whole chain, so no key is ever sent
+    // and every tag/layout click becomes a silent no-op
+    function keyOnMonitor(num, combo) {
+        Quickshell.execDetached(["xdotool", "set_desktop", String(num), "key", "--clearmodifiers", combo]);
+    }
+
     // xdotool sends _NET_ACTIVE_WINDOW, which the local dwm patch handles by
     // switching to the window's monitor and tag before focusing it
     function activate(win) {
