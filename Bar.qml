@@ -204,8 +204,13 @@ PanelWindow {
                     anchors.fill: parent
                     hoverEnabled: true
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    onClicked: mouse => DwmState.key(
-                        (mouse.button === Qt.RightButton ? "super+ctrl+" : "super+") + (tagPill.index + 1))
+                    onClicked: mouse => {
+                        const combo = (mouse.button === Qt.RightButton ? "super+ctrl+" : "super+") + (tagPill.index + 1);
+                        if (bar.mon)
+                            DwmState.keyOnMonitor(bar.mon.num, combo);
+                        else
+                            DwmState.key(combo);
+                    }
                 }
             }
         }
@@ -230,7 +235,12 @@ PanelWindow {
                 id: layoutMouse
                 anchors.fill: parent
                 hoverEnabled: true
-                onClicked: DwmState.key(bar.nextLayoutKey())
+                onClicked: {
+                    if (bar.mon)
+                        DwmState.keyOnMonitor(bar.mon.num, bar.nextLayoutKey());
+                    else
+                        DwmState.key(bar.nextLayoutKey());
+                }
             }
         }
 
