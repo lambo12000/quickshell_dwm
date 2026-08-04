@@ -289,7 +289,10 @@ PanelWindow {
                     anchors.fill: parent
                     hoverEnabled: true
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    cursorShape: tagMouse.dragging ? Qt.ClosedHandCursor : Qt.ArrowCursor
+                    // the drag flag outlives the drop by design (see onClicked),
+                    // so the cursor follows the bar instead: every pill wears
+                    // the closed hand while a drag is in flight, none after it
+                    cursorShape: bar.dragActive ? Qt.ClosedHandCursor : Qt.ArrowCursor
 
                     // the client under the press, null when the press landed on
                     // the pill itself (background, tag number or the "+N")
@@ -305,7 +308,14 @@ PanelWindow {
                         return item && item.client ? item.client : null;
                     }
 
+                    // Only the button that opened a gesture drives it: a
+                    // second button pressed mid-drag (a right-click while the
+                    // left one is held) must not reset the state machine under
+                    // the live grab, or the drag would restart as a whole-stack
+                    // one and the release stop matching the press.
                     onPressed: mouse => {
+                        if (mouse.buttons !== mouse.button)
+                            return;
                         tagMouse.dragging = false;
                         tagMouse.pressedClient = mouse.button === Qt.LeftButton
                             ? tagMouse.clientAt(mouse.x, mouse.y) : null;
@@ -347,6 +357,10 @@ PanelWindow {
                     // cleared on the next press, never here
                     onClicked: mouse => {
                         if (tagMouse.dragging)
+                            return;
+                        // the release of a second button, with the one that
+                        // opened the gesture still held: not a click either
+                        if (mouse.buttons !== Qt.NoButton)
                             return;
                         if (tagMouse.pressedClient) {
                             DwmState.activate(tagMouse.pressedClient.win);
