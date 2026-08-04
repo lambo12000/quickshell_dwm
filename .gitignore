@@ -5,3 +5,6 @@ settings.json
 # dwm build artifacts
 dwm/*.o
 dwm/dwm
+
+# screensaver helper build artifact
+screensaver/qs-screensaver-helper

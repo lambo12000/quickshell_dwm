@@ -17,7 +17,7 @@ echo "==> Installing packages (sudo)..."
 sudo pacman -S --needed \
     base-devel libx11 libxft libxinerama xorg-server xorg-xinit xorg-xprop \
     quickshell picom snixembed \
-    xdotool dmenu xwallpaper \
+    xdotool dmenu xwallpaper xorg-xset \
     alacritty \
     ttf-jetbrains-mono-nerd \
     networkmanager bluez bluez-utils
@@ -28,6 +28,9 @@ sudo systemctl enable --now NetworkManager bluetooth
 echo "==> Building and installing dwm..."
 make -C "$REPO_DIR/dwm" clean all
 sudo make -C "$REPO_DIR/dwm" install
+
+echo "==> Building screensaver helper..."
+make -C "$REPO_DIR/screensaver"
 
 echo "==> Creating wallpaper directory..."
 mkdir -p "$HOME/Pictures/Wallpapers"
