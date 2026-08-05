@@ -49,8 +49,9 @@ Singleton {
     // no set_desktop prefix here -- the window id already picks the monitor.
     // Deployment: requires a dwm advertising _NET_WM_DESKTOP. Against an older
     // binary xdotool's support check aborts the chain, so a drop is a silent
-    // no-op. A window id that has since closed aborts the chain the same way,
-    // leaving the rest of a stack behind -- the bar shows the truth either way.
+    // no-op. A window id that has since closed is harmless: the message goes
+    // to the root window unvalidated and dwm's wintoclient ignores dead ids,
+    // so the rest of the stack still lands.
     function moveToTag(wins, tagIndex) {
         if (wins.length === 0)
             return;
@@ -58,6 +59,42 @@ Singleton {
         for (let i = 0; i < wins.length; i++)
             argv.push("set_desktop_for_window", String(wins[i]), String(tagIndex));
         Quickshell.execDetached(argv);
+    }
+
+    // Every command above dies silently when the running dwm predates the atom
+    // it rides on, so the bars show a warning chip when _NET_SUPPORTED lacks
+    // one of these. The check waits for the first state parse — quickshell
+    // starts before dwm in xinitrc — and still retries, because a state file
+    // left over from the previous session fires onLoaded before dwm's setup()
+    // has published the atom list.
+    readonly property var requiredAtoms: ["_NET_ACTIVE_WINDOW", "_NET_CURRENT_DESKTOP", "_NET_WM_DESKTOP"]
+    property var missingAtoms: []
+    property bool warningDismissed: false
+    property bool supportChecked: false
+    property int supportRetries: 0
+
+    Process {
+        id: supportCheck
+        command: ["xprop", "-root", "_NET_SUPPORTED"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const eq = text.indexOf("=");
+                const atoms = eq < 0 ? [] : text.slice(eq + 1).split(",").map(s => s.trim());
+                const missing = root.requiredAtoms.filter(a => atoms.indexOf(a) < 0);
+                if (missing.length > 0 && root.supportRetries < 2) {
+                    root.supportRetries++;
+                    supportRetry.restart();
+                } else {
+                    root.missingAtoms = missing;
+                }
+            }
+        }
+    }
+
+    Timer {
+        id: supportRetry
+        interval: 4000
+        onTriggered: supportCheck.running = true
     }
 
     FileView {
@@ -69,6 +106,11 @@ Singleton {
                 root.monitors = JSON.parse(text());
             } catch (e) {
                 // partial write; the next change event re-parses
+                return;
+            }
+            if (!root.supportChecked) {
+                root.supportChecked = true;
+                supportCheck.running = true;
             }
         }
     }
