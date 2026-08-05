@@ -433,6 +433,30 @@ PanelWindow {
         anchors.verticalCenter: parent.verticalCenter
         spacing: 6
 
+        // shown when the running dwm predates an atom the bar's commands need
+        // (clicks and drags silently no-op until the rebuilt binary is
+        // installed and the session restarted); click to dismiss for now
+        Rectangle {
+            visible: DwmState.missingAtoms.length > 0 && !DwmState.warningDismissed
+            width: staleText.implicitWidth + 12
+            height: 22
+            radius: 6
+            color: Qt.rgba(Theme.urgent.r, Theme.urgent.g, Theme.urgent.b, 0.22)
+
+            Text {
+                id: staleText
+                anchors.centerIn: parent
+                text: "dwm out of date"
+                color: Theme.urgent
+                font.pixelSize: Theme.fontSize
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: DwmState.warningDismissed = true
+            }
+        }
+
         Repeater {
             model: SystemTray.items
 
