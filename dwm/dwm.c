@@ -62,7 +62,7 @@ enum { SchemeNorm, SchemeSel }; /* color schemes */
 enum { NetSupported, NetWMName, NetWMState, NetWMCheck,
        NetWMFullscreen, NetActiveWindow, NetWMWindowType,
        NetWMWindowTypeDialog, NetWMWindowTypeDock, NetClientList,
-       NetCurrentDesktop, NetLast }; /* EWMH atoms */
+       NetCurrentDesktop, NetWMDesktop, NetLast }; /* EWMH atoms */
 enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms */
 enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
        ClkClientWin, ClkRootWin, ClkLast }; /* clicks */
@@ -212,6 +212,7 @@ static void seturgent(Client *c, int urg);
 static void showhide(Client *c);
 static void spawn(const Arg *arg);
 static void tag(const Arg *arg);
+static void tagclient(Client *c, unsigned int t);
 static void tagmon(const Arg *arg);
 static void tile(Monitor *m);
 static void togglebar(const Arg *arg);
@@ -561,6 +562,13 @@ clientmessage(XEvent *e)
 		}
 		focus(c);
 		restack(selmon);
+	} else if (cme->message_type == netatom[NetWMDesktop]) {
+		/* _NET_WM_DESKTOP retags a single window on its own monitor
+		 * (the bar's drag-and-drop); unlike the key-driven tag() it
+		 * leaves the current view alone, so a drop never yanks the
+		 * user off the tag they are looking at */
+		if (cme->data.l[0] >= 0 && cme->data.l[0] < (long)LENGTH(tags))
+			tagclient(c, 1 << cme->data.l[0]);
 	}
 }
 
@@ -1736,6 +1744,7 @@ setup(void)
 	netatom[NetWMWindowTypeDock] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DOCK", False);
 	netatom[NetClientList] = XInternAtom(dpy, "_NET_CLIENT_LIST", False);
 	netatom[NetCurrentDesktop] = XInternAtom(dpy, "_NET_CURRENT_DESKTOP", False);
+	netatom[NetWMDesktop] = XInternAtom(dpy, "_NET_WM_DESKTOP", False);
 	/* init cursors */
 	cursor[CurNormal] = drw_cur_create(drw, XC_left_ptr);
 	cursor[CurResize] = drw_cur_create(drw, XC_sizing);
@@ -1831,6 +1840,25 @@ tag(const Arg *arg)
 		focus(NULL);
 		arrange(selmon);
 	}
+}
+
+/* retag an arbitrary client, focused or not, on its own monitor. The view
+ * is untouched; only a selection that just became invisible is replaced. */
+void
+tagclient(Client *c, unsigned int t)
+{
+	Monitor *m = c->mon;
+
+	if (!(t & TAGMASK) || c->tags == (t & TAGMASK))
+		return;
+	c->tags = t & TAGMASK;
+	if (m == selmon)
+		focus(NULL);
+	else if (c == m->sel && !ISVISIBLE(c))
+		/* focus(NULL) only re-picks on selmon, so another monitor's
+		 * stale selection has to be dropped by hand */
+		for (m->sel = m->stack; m->sel && !ISVISIBLE(m->sel); m->sel = m->sel->snext);
+	arrange(m);
 }
 
 void
